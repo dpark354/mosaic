@@ -89,9 +89,25 @@ def clean_name(d):
         clean4=clean3[0].replace('\.',' ')
         clean5=clean4.strip()
         d=clean5
+        at_=clean1[1]
     except:
         d=""
+        at_=""
     return d
+
+def at_name(d):
+    try:
+        clean1=d.split('@')
+        clean2=clean1[0].split('[')
+        clean3=clean2[0].split('(')
+        clean4=clean3[0].replace('\.',' ')
+        clean5=clean4.strip()
+        d=clean5
+        at_=clean1[1]
+    except:
+        d=""
+        at_=""
+    return at_
 
 def make_float(x):
     try:
@@ -141,6 +157,11 @@ d_scratch1['Year_Month']=d['date_sortable'].apply(lambda x: month_year(x))
 
 
 d_update=d['owner'].apply(lambda x: clean_name(x))
+d_at=d['owner'].apply(lambda x: at_name(x))
+
+d['clean_name']=d_update
+d['at']=d_at
+
 d.to_csv(wb_prefix+'_2.csv')
 #%%
 #%%
@@ -165,15 +186,17 @@ def split_path(d):
 d['path_split']=d['path'].apply(lambda x: split_path(x) )
 #%%
 ##checkpoint#3
-d['clean_name']=d.owner.apply(lambda x: clean_name(x))
-dname=d[['owner','clean_name']]
-clean_name=d['clean_name']
+#d['clean_name']=d['owner'].apply(lambda x: clean_name(x))
+#dname=d[['owner','clean_name','fullaccount']]
+#clean_name=d['clean_name']
 
+
+#%%
 
 
 ##thesee are the stubs in the name that are almost never valid
-
-List_of_terms=['Admin',\
+def dispo(x):
+    List_of_terms=['Admin',\
                'Education',\
                 'Zoom', \
                 'Summit',\
@@ -285,37 +308,51 @@ List_of_terms=['Admin',\
 
 
 
-#%%
-#if the term is in th elist of names mark it a 1 
-dname['Dispo']=dname['clean_name'].apply(lambda x: 1 if any(i in x for i in List_of_terms) else 0)
+
+    try:
+        if x in List_of_terms:
+            return 1
+        elif x[-1]=="2":
+            return 1
+        else:
+            return 0
+    except:
+        return -1
+        #if the term is in th elist of names mark it a 1 
+d['Dispo']=d['clean_name'].apply(lambda x: dispo(x) )
+#dname.to_excel('name_cleanup.xlsx')
 
 #%%
 
-dname.to_excel('name_cleanup.xlsx')
-
+dedupe=pd.DataFrame(d[['clean_name', 'owner','fullaccount','Dispo','at']].drop_duplicates())
+#dedupe['Dispo']=dedupe['clean_name'].apply(lambda x: 1 if any(i in x for i in List_of_terms) else 0)
 ## stop here for tonight
 
 #%%
-look_up=pyxl.load_workbook('name_cleanup2.xlsx')
+
+#look_up=pyxl.load_workbook('name_cleanup2.xlsx')
+    #%%
+domain_=dedupe[dedupe['at']!=""]['at'].drop_duplicates()
+#%%
+domain_.reset_index(drop=True)
 #%%
 
-ws_lookup_up=look_up['Name Match']
+domain_.to_excel('domain_cleanup.xlsx')
+#%%
 
-d_look_up=pd.DataFrame(ws_lookup_up.values)
+
+d_look_up=pd.read_csv('domain_cleanup.csv')
 
 #%%
-d_look_up.columns=d_look_up.iloc[0,:]
-d_look_up.columns
+d_look_up=d_look_up[['at','disposition']]
 #%%
-d_look_up=d_look_up.iloc[1:,0:2]
-d_look_up.reset_index(drop=True)
-d_look_up
 
-d_joined=d.join(d_look_up.set_index('Deduped Names'), on='clean_name')
+
+d_joined=d.join(d_look_up.set_index('at'), on='at')
 
 #%%
-d_joined.iloc[-1,:]
+d_joined[d_joined['disposition'].isna()]
 # test to confirm names are working in the beginning and the end
 
-d_joined.to_excel('join_mosaic.xlsx')
+#d_joined.to_excel('join_mosaic.xlsx')
 #%%
